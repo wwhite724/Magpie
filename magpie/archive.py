@@ -1,0 +1,138 @@
+"""Builds the encrypted 7z archive with 7-Zip (fast) or py7zr (pure Python fallback).
+
+Each source folder is stored under its own folder name, for example
+``Documents/...`` and ``dev/...``. AES-256 encryption covers file contents and
+file names (header encryption).
+"""
+
+from __future__ import annotations
+
+import fnmatch
+import logging
+import os
+import shutil
+import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+
+from .config import Config
+
+log = logging.getLogger(__name__)
+
+
+class ArchiveError(Exception):
+    pass
+
+
+@dataclass
+class ArchiveResult:
+    path: Path
+    size: int
+    warnings: list[str]
+
+
+def is_excluded(rel_parts: tuple[str, ...], patterns: list[str]) -> bool:
+    """True if any path component matches any pattern (case-insensitive, like 7-Zip's -xr!)."""
+    return any(fnmatch.fnmatch(part.lower(), pat.lower()) for part in rel_parts for pat in patterns)
+
+
+def iter_files(source: Path, patterns: list[str]):
+    """Yields (absolute path, archive name) for every file under source that isn't excluded."""
+    for root, dirs, files in os.walk(source):
+        rel_root = Path(root).relative_to(source)
+        root_parts = rel_root.parts
+        dirs[:] = [d for d in dirs if not is_excluded(root_parts + (d,), patterns)]
+        for f in files:
+            if is_excluded(root_parts + (f,), patterns):
+                continue
+            yield Path(root) / f, (Path(source.name) / rel_root / f).as_posix()
+
+
+def scan(cfg: Config) -> tuple[int, int]:
+    """Counts the files and bytes that would be archived (used by --dry-run)."""
+    count = total = 0
+    for src in cfg.sources:
+        for path, _ in iter_files(src, cfg.excludes):
+            try:
+                total += path.stat().st_size
+                count += 1
+            except OSError:
+                pass
+    return count, total
+
+
+def find_7z(cfg: Config) -> str | None:
+    if Path(cfg.seven_zip_path).is_file():
+        return cfg.seven_zip_path
+    return shutil.which("7z") or shutil.which("7za")
+
+
+def create_archive(cfg: Config, dest: Path) -> ArchiveResult:
+    missing = [str(s) for s in cfg.sources if not s.is_dir()]
+    if missing:
+        raise ArchiveError(f"Source folders not found: {missing}")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    partial = dest.with_name(dest.name + ".partial")
+    partial.unlink(missing_ok=True)
+
+    seven = find_7z(cfg) if cfg.archiver in ("auto", "7z") else None
+    if cfg.archiver == "7z" and not seven:
+        raise ArchiveError(f"7-Zip not found at {cfg.seven_zip_path} or on PATH")
+
+    if seven:
+        warnings = _with_7z(seven, cfg, partial)
+    else:
+        warnings = _with_py7zr(cfg, partial)
+
+    partial.replace(dest)
+    return ArchiveResult(dest, dest.stat().st_size, warnings)
+
+
+def _with_7z(exe: str, cfg: Config, out: Path) -> list[str]:
+    log.info("Archiving with 7-Zip (%s)", exe)
+    args = [
+        exe, "a", "-t7z", f"-mx={cfg.compression_level}", "-mhe=on",
+        f"-p{cfg.password}",
+        "-ssw",          # include files that are open for writing
+        "-bd", "-bb0",   # no progress indicator, quiet listing
+        "-y",
+    ]
+    args += [f"-xr!{pat}" for pat in cfg.excludes]
+    args.append(str(out))
+    args += [str(s) for s in cfg.sources]
+
+    proc = subprocess.run(args, capture_output=True, text=True, errors="replace")
+    output = (proc.stdout + proc.stderr).strip()
+    # 7-Zip exit codes: 0 OK, 1 warning (e.g. a locked file was skipped), 2+ error.
+    if proc.returncode >= 2:
+        out.unlink(missing_ok=True)
+        raise ArchiveError(f"7-Zip failed with exit code {proc.returncode}:\n{output.replace(cfg.password, '***')}")
+    warnings = []
+    if proc.returncode == 1:
+        lines = output.splitlines()
+        warnings = [l.strip() for l in lines if "WARNING" in l.upper()][:50] or ["7-Zip reported warnings"]
+    return warnings
+
+
+def _with_py7zr(cfg: Config, out: Path) -> list[str]:
+    try:
+        import py7zr
+    except ImportError as e:
+        raise ArchiveError("Neither 7-Zip nor py7zr is available (pip install -r requirements.txt)") from e
+
+    log.info("Archiving with py7zr (install 7-Zip for faster backups)")
+    warnings = []
+    try:
+        with py7zr.SevenZipFile(out, "w", password=cfg.password, header_encryption=True) as z:
+            for src in cfg.sources:
+                for path, arcname in iter_files(src, cfg.excludes):
+                    try:
+                        with open(path, "rb"):
+                            pass  # make sure it's readable before adding it
+                        z.write(path, arcname)
+                    except (PermissionError, OSError) as e:
+                        warnings.append(f"Skipped {path}: {e}")
+    except Exception:
+        out.unlink(missing_ok=True)
+        raise
+    return warnings

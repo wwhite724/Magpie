@@ -1,0 +1,7 @@
+{
+  "folders": [{ "path": "." }],
+  "settings": {
+    "files.exclude": { "**/__pycache__": true, "staging": true },
+    "python.testing.pytestEnabled": true
+  }
+}

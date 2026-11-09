@@ -1,0 +1,39 @@
+{
+  "machine_name": "",
+  "sources": [
+    "%USERPROFILE%\Documents",
+    "%USERPROFILE%\Pictures",
+    "C:\dev"
+  ],
+  "excludes": [
+    "node_modules",
+    ".venv",
+    "__pycache__",
+    "bin",
+    "obj",
+    ".vs",
+    "*.tmp",
+    "Thumbs.db",
+    "desktop.ini"
+  ],
+  "keep": 2,
+  "staging_dir": "staging",
+  "log_dir": "logs",
+  "archiver": "auto",
+  "seven_zip_path": "C:\Program Files\7-Zip\7z.exe",
+  "rclone_path": "rclone",
+  "compression_level": 5,
+  "destinations": [
+    {
+      "name": "truenas",
+      "type": "folder",
+      "path": "\\truenas\backups\magpie"
+    },
+    {
+      "name": "gdrive",
+      "type": "rclone",
+      "path": "gdrive:Backups/Magpie",
+      "rclone_args": ["--drive-use-trash=false"]
+    }
+  ]
+}
