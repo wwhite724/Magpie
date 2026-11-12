@@ -37,7 +37,6 @@ class Config:
     excludes: list[str] = field(default_factory=list)
     keep: int = 2
     machine_name: str = ""
-    archiver: str = "auto"  # "auto", "7z" or "py7zr"
     seven_zip_path: str = r"C:\Program Files\7-Zip\7z.exe"
     rclone_path: str = "rclone"
     compression_level: int = 5
@@ -119,10 +118,6 @@ def load_config(config_path: Path, *, require_password: bool = True) -> Config:
     if keep < 1:
         raise ConfigError("'keep' must be at least 1")
 
-    archiver = data.get("archiver", "auto")
-    if archiver not in ("auto", "7z", "py7zr"):
-        raise ConfigError("'archiver' must be 'auto', '7z' or 'py7zr'")
-
     password = os.environ.get(PASSWORD_ENV, "")
     if require_password and not password:
         raise ConfigError(f"{PASSWORD_ENV} is not set (put it in .env next to config.json)")
@@ -135,7 +130,6 @@ def load_config(config_path: Path, *, require_password: bool = True) -> Config:
         excludes=list(data.get("excludes", [])),
         keep=keep,
         machine_name=_safe_machine_name(data.get("machine_name") or platform.node()),
-        archiver=archiver,
         seven_zip_path=data.get("seven_zip_path", Config.seven_zip_path),
         rclone_path=data.get("rclone_path", Config.rclone_path),
         compression_level=int(data.get("compression_level", 5)),

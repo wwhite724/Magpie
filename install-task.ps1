@@ -43,11 +43,11 @@ $root = $PSScriptRoot
 if (-not (Test-Path (Join-Path $root "config.json"))) { throw "config.json is missing in $root (copy config.example.json)." }
 if (-not (Test-Path (Join-Path $root ".env")))        { throw ".env is missing in $root (copy .env.example)." }
 
-# py7zr is only the fallback when 7-Zip is missing. The check prints nothing to stderr:
-# Windows PowerShell turns native stderr into a terminating error under "Stop".
-& $PythonExe -c "import importlib.util, sys; sys.exit(importlib.util.find_spec('py7zr') is None)"
-if ($LASTEXITCODE -ne 0 -and -not (Test-Path "C:\Program Files\7-Zip\7z.exe") -and -not (Get-Command 7z.exe -ErrorAction SilentlyContinue)) {
-    Write-Warning "Neither 7-Zip nor py7zr is installed. Install 7-Zip, or run: & '$PythonExe' -m pip install -r requirements.txt"
+# 7-Zip is a prerequisite: Magpie builds every archive with it.
+$sevenZip = (Get-Content (Join-Path $root "config.json") -Raw | ConvertFrom-Json).seven_zip_path
+if (-not $sevenZip) { $sevenZip = "C:\Program Files\7-Zip\7z.exe" }
+if (-not (Test-Path $sevenZip) -and -not (Get-Command 7z.exe -ErrorAction SilentlyContinue)) {
+    throw "7-Zip not found at $sevenZip or on PATH. Install it first: winget install 7zip.7zip"
 }
 
 $user = "$env:USERDOMAIN\$env:USERNAME"

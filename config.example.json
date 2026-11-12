@@ -22,7 +22,6 @@
   "keep": 2,
   "staging_dir": "staging",
   "log_dir": "logs",
-  "archiver": "auto",
   "seven_zip_path": "C:\Program Files\7-Zip\7z.exe",
   "rclone_path": "rclone",
   "compression_level": 5,

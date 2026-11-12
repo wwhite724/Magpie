@@ -1,4 +1,4 @@
-"""Builds the encrypted 7z archive with 7-Zip (fast) or py7zr (pure Python fallback).
+"""Builds the encrypted 7z archive with the 7-Zip executable (a prerequisite).
 
 Each source folder is stored under its own folder name, for example
 ``Documents/...`` and ``dev/...``. AES-256 encryption covers file contents and
@@ -63,7 +63,8 @@ def iter_files(source: Path, patterns: list[str], skip_dirs: list[Path] = ()):
 
 
 def scan(cfg: Config) -> tuple[int, int]:
-    """Counts the files and bytes that would be archived (used by --dry-run)."""
+    """Counts the files and bytes that would be archived (used by --dry-run).
+    Uses the same exclude rules as the 7-Zip command line."""
     count = total = 0
     for src in cfg.sources:
         for path, _ in iter_files(src, cfg.excludes, own_dirs(cfg)):
@@ -89,14 +90,12 @@ def create_archive(cfg: Config, dest: Path) -> ArchiveResult:
     partial = dest.with_name(dest.name + ".partial")
     partial.unlink(missing_ok=True)
 
-    seven = find_7z(cfg) if cfg.archiver in ("auto", "7z") else None
-    if cfg.archiver == "7z" and not seven:
-        raise ArchiveError(f"7-Zip not found at {cfg.seven_zip_path} or on PATH")
-
-    if seven:
-        warnings = _with_7z(seven, cfg, partial)
-    else:
-        warnings = _with_py7zr(cfg, partial)
+    seven = find_7z(cfg)
+    if not seven:
+        raise ArchiveError(
+            f"7-Zip not found at {cfg.seven_zip_path} or on PATH. Install it: winget install 7zip.7zip"
+        )
+    warnings = _with_7z(seven, cfg, partial)
 
     partial.replace(dest)
     return ArchiveResult(dest, dest.stat().st_size, warnings)
@@ -155,26 +154,3 @@ def seven_zip_warnings(output: str) -> list[str]:
             found.append(f"Skipped {text}")
     return found[:50] or ["7-Zip reported warnings (see its output)"]
 
-
-def _with_py7zr(cfg: Config, out: Path) -> list[str]:
-    try:
-        import py7zr
-    except ImportError as e:
-        raise ArchiveError("Neither 7-Zip nor py7zr is available (pip install -r requirements.txt)") from e
-
-    log.info("Archiving with py7zr (install 7-Zip for faster backups)")
-    warnings = []
-    try:
-        with py7zr.SevenZipFile(out, "w", password=cfg.password, header_encryption=True) as z:
-            for src in cfg.sources:
-                for path, arcname in iter_files(src, cfg.excludes, own_dirs(cfg)):
-                    try:
-                        with open(path, "rb"):
-                            pass  # make sure it's readable before adding it
-                        z.write(path, arcname)
-                    except (PermissionError, OSError) as e:
-                        warnings.append(f"Skipped {path}: {e}")
-    except Exception:
-        out.unlink(missing_ok=True)
-        raise
-    return warnings

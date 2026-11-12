@@ -1,11 +1,12 @@
 import json
+import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
 
 from magpie import naming
-from magpie.archive import is_excluded, iter_files
+from magpie.archive import ArchiveResult, find_7z, is_excluded, iter_files
 from magpie.cli import run_backup
 from magpie.config import ConfigError, load_config
 
@@ -67,7 +68,7 @@ def test_iter_files_skips_excluded(tmp_path):
 
 # --- end to end with folder destinations ---------------------------------------
 
-def make_setup(tmp_path, keep=2, archiver="py7zr"):
+def make_setup(tmp_path, keep=2):
     src = tmp_path / "Documents"
     (src / "sub").mkdir(parents=True)
     (src / "hello.txt").write_text("hello")
@@ -83,7 +84,6 @@ def make_setup(tmp_path, keep=2, archiver="py7zr"):
         "log_dir": "logs",
         "keep": keep,
         "machine_name": "testbox",
-        "archiver": archiver,
         "destinations": [
             {"name": "truenas", "type": "folder", "path": str(nas)},
             {"name": "gdrive", "type": "folder", "path": str(gd)},
@@ -96,6 +96,48 @@ def make_setup(tmp_path, keep=2, archiver="py7zr"):
 @pytest.fixture(autouse=True)
 def clean_env(monkeypatch):
     monkeypatch.delenv("MAGPIE_PASSWORD", raising=False)
+
+
+@pytest.fixture
+def seven_zip(tmp_path):
+    """The 7-Zip executable; tests that build real archives are skipped without it."""
+    cfg_path, *_ = make_setup(tmp_path / "probe")
+    exe = find_7z(load_config(cfg_path))
+    if not exe:
+        pytest.skip("7-Zip not installed")
+    return exe
+
+
+@pytest.fixture
+def fake_archive(monkeypatch):
+    """Replaces 7-Zip with a tiny stand-in file, for tests about uploading and retention."""
+    import magpie.cli as cli
+
+    def fake(cfg, dest):
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"7z stand-in")
+        return ArchiveResult(dest, dest.stat().st_size, [])
+
+    monkeypatch.setattr(cli, "create_archive", fake)
+
+
+def archive_names(exe, archive, password):
+    """The file paths inside an archive, listed by 7-Zip."""
+    out = subprocess.run([exe, "l", "-slt", "-ba", f"-p{password}", str(archive)],
+                         capture_output=True, text=True)
+    assert out.returncode == 0, out.stdout + out.stderr
+    blocks = out.stdout.split("\n\n")
+    return sorted(
+        b.split("Path = ", 1)[1].splitlines()[0].replace("\\", "/")
+        for b in blocks
+        if "Path = " in b and "Folder = +" not in b and "Attributes = D" not in b
+    )
+
+
+def extract(exe, archive, password, out_dir):
+    proc = subprocess.run([exe, "x", "-y", f"-p{password}", f"-o{out_dir}", str(archive)],
+                          capture_output=True, text=True)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
 
 
 def test_config_requires_password(tmp_path):
@@ -115,8 +157,7 @@ def test_config_rejects_duplicate_source_names(tmp_path):
         load_config(cfg_path)
 
 
-def test_three_nights_keeps_two_everywhere(tmp_path):
-    py7zr = pytest.importorskip("py7zr")
+def test_three_nights_keeps_two_everywhere(tmp_path, seven_zip):
     cfg_path, nas, gd = make_setup(tmp_path)
     cfg = load_config(cfg_path)
     assert cfg.machine_name == "TESTBOX"
@@ -133,16 +174,13 @@ def test_three_nights_keeps_two_everywhere(tmp_path):
 
     # The archive is encrypted, including file names, and holds the right files.
     newest = nas / expected[-1]
-    with pytest.raises(Exception):
-        with py7zr.SevenZipFile(newest, "r") as z:
-            z.getnames()
-    with py7zr.SevenZipFile(newest, "r", password=PASSWORD) as z:
-        names = sorted(n for n in z.getnames() if not n.endswith("/") and "." in n.rsplit("/", 1)[-1])
-    assert names == ["Documents/hello.txt", "Documents/sub/data.bin"]
+    wrong = subprocess.run([seven_zip, "l", "-pwrong", str(newest)], capture_output=True, text=True)
+    assert wrong.returncode != 0
+    assert "hello.txt" not in wrong.stdout
+    assert archive_names(seven_zip, newest, PASSWORD) == ["Documents/hello.txt", "Documents/sub/data.bin"]
 
 
-def test_failed_destination_is_not_pruned(tmp_path):
-    pytest.importorskip("py7zr")
+def test_failed_destination_is_not_pruned(tmp_path, fake_archive):
     cfg_path, nas, gd = make_setup(tmp_path)
     cfg = load_config(cfg_path)
     start = datetime(2026, 11, 6, 2, 0, 0)
@@ -171,27 +209,19 @@ def test_dry_run_changes_nothing(tmp_path):
     assert not nas.exists() and not gd.exists()
 
 
-def test_7zip_archiver_round_trip(tmp_path):
-    """Runs only where the 7-Zip executable is installed."""
-    py7zr = pytest.importorskip("py7zr")
-    cfg_path, nas, _ = make_setup(tmp_path, archiver="7z")
+def test_7zip_round_trip(tmp_path, seven_zip):
+    cfg_path, nas, _ = make_setup(tmp_path)
     cfg = load_config(cfg_path)
-    from magpie.archive import find_7z
-    if not find_7z(cfg):
-        pytest.skip("7-Zip not installed")
     assert run_backup(cfg, now=datetime(2026, 11, 8, 2, 0, 0)) == 0
-    with py7zr.SevenZipFile(nas / "magpie-TESTBOX-20261108-020000.7z", "r", password=PASSWORD) as z:
-        z.extractall(tmp_path / "restore")
+    extract(seven_zip, nas / "magpie-TESTBOX-20261108-020000.7z", PASSWORD, tmp_path / "restore")
     assert (tmp_path / "restore" / "Documents" / "hello.txt").read_bytes() == b"hello"
     assert (tmp_path / "restore" / "Documents" / "sub" / "data.bin").exists()
     assert not (tmp_path / "restore" / "Documents" / "junk.tmp").exists()
 
 
-@pytest.mark.parametrize("archiver", ["py7zr", "7z"])
-def test_staging_and_logs_inside_a_source_are_not_archived(tmp_path, archiver):
+def test_staging_and_logs_inside_a_source_are_not_archived(tmp_path, seven_zip):
     """Like the Magpie staging folder when C:/dev is a source."""
-    py7zr = pytest.importorskip("py7zr")
-    cfg_path, nas, _ = make_setup(tmp_path, archiver=archiver)
+    cfg_path, nas, _ = make_setup(tmp_path)
     data = json.loads(cfg_path.read_text())
     src = Path(data["sources"][0])
     data["staging_dir"] = str(src / "Magpie" / "staging")
@@ -205,21 +235,16 @@ def test_staging_and_logs_inside_a_source_are_not_archived(tmp_path, archiver):
     (src / "other" / "staging").mkdir(parents=True)
     (src / "other" / "staging" / "keep.txt").write_text("a different staging folder is kept")
     cfg = load_config(cfg_path)
-    from magpie.archive import find_7z
-    if archiver == "7z" and not find_7z(cfg):
-        pytest.skip("7-Zip not installed")
 
     assert run_backup(cfg, now=datetime(2026, 11, 8, 2, 0, 0)) == 0
-    with py7zr.SevenZipFile(nas / "magpie-TESTBOX-20261108-020000.7z", "r", password=PASSWORD) as z:
-        names = set(z.getnames())
+    names = set(archive_names(seven_zip, nas / "magpie-TESTBOX-20261108-020000.7z", PASSWORD))
     assert "Documents/Magpie/code.py" in names
     assert "Documents/other/staging/keep.txt" in names
     assert not [n for n in names if n.startswith(("Documents/Magpie/staging", "Documents/Magpie/logs"))]
 
 
-def test_per_destination_keep_and_prune_before_upload(tmp_path):
+def test_per_destination_keep_and_prune_before_upload(tmp_path, fake_archive):
     """gdrive keeps 1 and makes room first; truenas keeps the default 2."""
-    pytest.importorskip("py7zr")
     cfg_path, nas, gd = make_setup(tmp_path)
     data = json.loads(cfg_path.read_text())
     data["destinations"][1].update({"keep": 1, "prune_before_upload": True})
@@ -281,9 +306,8 @@ Scan WARNINGS: 2
     assert seven_zip_warnings("no summary") == ["7-Zip reported warnings (see its output)"]
 
 
-def test_quota_error_after_making_room_is_retried(tmp_path, monkeypatch):
+def test_quota_error_after_making_room_is_retried(tmp_path, monkeypatch, fake_archive):
     """Google Drive is slow to count freed space; the upload must be retried, not given up."""
-    pytest.importorskip("py7zr")
     import magpie.cli as cli
     import magpie.destinations as dst
     monkeypatch.setattr(cli, "QUOTA_RETRY_DELAYS", [0, 0, 0])
@@ -310,8 +334,7 @@ def test_quota_error_after_making_room_is_retried(tmp_path, monkeypatch):
     assert [p.name for p in gd.iterdir()] == ["magpie-TESTBOX-20261108-020000.7z"]
 
 
-def test_quota_error_without_making_room_is_not_retried(tmp_path, monkeypatch):
-    pytest.importorskip("py7zr")
+def test_quota_error_without_making_room_is_not_retried(tmp_path, monkeypatch, fake_archive):
     import magpie.cli as cli
     import magpie.destinations as dst
     monkeypatch.setattr(cli, "QUOTA_RETRY_DELAYS", [0, 0, 0])
@@ -329,3 +352,12 @@ def test_quota_error_without_making_room_is_not_retried(tmp_path, monkeypatch):
     monkeypatch.setattr(dst.FolderDestination, "upload", full)
     assert run_backup(cfg, now=datetime(2026, 11, 8, 2, 0, 0)) == 1
     assert calls["n"] == 1
+
+
+def test_missing_7zip_stops_the_backup(tmp_path, monkeypatch):
+    import magpie.archive as archive
+    monkeypatch.setattr(archive, "find_7z", lambda cfg: None)
+    cfg_path, nas, gd = make_setup(tmp_path)
+    cfg = load_config(cfg_path)
+    assert run_backup(cfg, now=datetime(2026, 11, 8, 2, 0, 0)) == 2
+    assert not nas.exists() and not gd.exists()

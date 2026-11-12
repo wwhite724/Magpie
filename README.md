@@ -19,12 +19,11 @@ each other's backups.
 
 ## Setup (on each PC)
 
-1. Install the tools:
+1. Install the prerequisites. Magpie needs no Python packages, but it builds every archive with 7-Zip:
    ```powershell
    winget install Python.Python.3.13
-   winget install 7zip.7zip          # optional but much faster than the py7zr fallback
+   winget install 7zip.7zip
    winget install Rclone.Rclone
-   python -m pip install -r requirements.txt
    ```
 2. Set up Google Drive in rclone: run `rclone config`, create a new remote named `gdrive` of type `drive` with scope `drive`,
    and sign in through the browser.
@@ -65,7 +64,7 @@ For Google Drive copies, download the file first: `rclone copy gdrive:Backups/Ma
 | `excludes` | Names or wildcards matched against every path part (`node_modules`, `*.tmp`). |
 | `keep` | How many archives to keep per destination (default 2). |
 | `machine_name` | Defaults to the computer name. |
-| `archiver` | `auto` (7-Zip if installed, otherwise py7zr), `7z` or `py7zr`. |
+| `seven_zip_path` | Default `C:\Program Files\7-Zip\7z.exe`. If it isn't there, `7z` on the PATH is used. |
 | `destinations` | `{"type": "folder", "path": "\\\\truenas\\share\\dir"}` or `{"type": "rclone", "path": "remote:dir", "rclone_args": [...]}`. |
 | `destinations[].keep` | Optional. Overrides `keep` for that destination. |
 | `destinations[].prune_before_upload` | Optional, default `false`. Deletes old archives *before* uploading the new one, for a destination too small to hold `keep` + 1 archives. With `keep: 1` the destination holds no backup while the upload runs, and none at all if that upload fails. |

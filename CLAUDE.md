@@ -6,7 +6,8 @@ keeping the newest N (default 2) per destination. Python 3.10+, run by Windows T
 ## Layout
 - `magpie/config.py`: loads `config.json` and `.env` (`MAGPIE_PASSWORD`). Both are git-ignored; keep `config.example.json` / `.env.example` current.
 - `magpie/naming.py`: archive names and the retention rule. This is the only code that decides what gets deleted.
-- `magpie/archive.py`: 7-Zip executable if found, py7zr fallback. Excludes are matched per path component in both.
+- `magpie/archive.py`: builds the archive with the 7-Zip executable, a prerequisite (no Python fallback, no
+  runtime Python packages). `iter_files` mirrors 7-Zip's per-component excludes for `--dry-run`.
 - `magpie/destinations.py`: `folder` (local/SMB) and `rclone` destinations: upload, list and delete.
 - `magpie/cli.py`: the run sequence (archive → upload → prune per destination → remove staging copy).
 
@@ -29,4 +30,5 @@ keeping the newest N (default 2) per destination. Python 3.10+, run by Windows T
 - Never log the password (7-Zip errors are scrubbed before logging).
 
 ## Test
-- `python -m pytest` (on Rocket, from WSL: `~/.venvs/magpie/bin/python -m pytest`). The 7-Zip test is skipped where 7z isn't installed.
+- `python -m pytest` (on Rocket, from WSL: `~/.venvs/magpie/bin/python -m pytest`). Tests that build real archives
+  are skipped where 7-Zip isn't installed (as in WSL); the rest use a stand-in archive.
