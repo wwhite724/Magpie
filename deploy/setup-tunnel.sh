@@ -56,7 +56,7 @@ fi
 echo "    $(cloudflared --version)"
 
 if [ -z "${TUNNEL_TOKEN:-}" ]; then
-  read -r -s -p "Tunnel token (Cloudflare > Zero Trust > Networks > Tunnels > whitesberg): " TUNNEL_TOKEN < /dev/tty
+  read -r -s -p "Tunnel token (Cloudflare > Networking > Tunnels > whitesberg): " TUNNEL_TOKEN < /dev/tty
   echo
 fi
 # accept either the bare token or the whole "cloudflared service install <token>" line from the dashboard

@@ -106,7 +106,8 @@ Publish changes with `.\deploy\deploy-site.ps1` (add `-Full` to set up or re-har
 
 These pages are the only thing on the home network that the internet can reach. No ports are open on OPNsense.
 
-1. Cloudflare **Zero Trust → Networks → Tunnels → Create a tunnel** (type Cloudflared), named `whitesberg`. Copy the token.
+1. Cloudflare **Networking → Tunnels → Create a tunnel** (type Cloudflared), named `whitesberg`. Copy the token.
+   Networking is its own item in the dashboard sidebar, not under Zero Trust.
 2. On the tunnel's **Public Hostname** tab add `whitesberg.net` (no subdomain, no path) with service
    **HTTP** `localhost:8081`. Never point it anywhere else.
 3. On the VM: `sudo bash ~/magpie-site-deploy/setup-tunnel.sh` and paste the token. It installs `cloudflared`, keeps the
