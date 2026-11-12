@@ -129,11 +129,31 @@ def _with_7z(exe: str, cfg: Config, out: Path) -> list[str]:
     if proc.returncode >= 2:
         out.unlink(missing_ok=True)
         raise ArchiveError(f"7-Zip failed with exit code {proc.returncode}:\n{output.replace(cfg.password, '***')}")
-    warnings = []
     if proc.returncode == 1:
-        lines = output.splitlines()
-        warnings = [l.strip() for l in lines if "WARNING" in l.upper()][:50] or ["7-Zip reported warnings"]
-    return warnings
+        return seven_zip_warnings(output)
+    return []
+
+
+def seven_zip_warnings(output: str) -> list[str]:
+    """The skipped files from 7-Zip's output, as "path : reason" lines.
+
+    7-Zip ends with a summary block:
+        Scan WARNINGS for files and folders:
+
+        C:\\Users\\me\\Documents\\My Music\\ : Access is denied.
+        ----------------
+        Scan WARNINGS: 1
+    """
+    found, inside = [], False
+    for line in output.splitlines():
+        text = line.strip()
+        if text.startswith("Scan WARNINGS for files and folders"):
+            inside = True
+        elif inside and text.startswith("----"):
+            inside = False
+        elif inside and text:
+            found.append(f"Skipped {text}")
+    return found[:50] or ["7-Zip reported warnings (see its output)"]
 
 
 def _with_py7zr(cfg: Config, out: Path) -> list[str]:

@@ -259,3 +259,73 @@ def test_destination_keep_must_be_positive(tmp_path):
     cfg_path.write_text(json.dumps(data))
     with pytest.raises(ConfigError, match="keep"):
         load_config(cfg_path)
+
+
+def test_seven_zip_warnings_lists_skipped_paths():
+    from magpie.archive import seven_zip_warnings
+    out = r"""Scanning the drive:
+WARNING: Access is denied.
+C:\Users\me\Documents\My Music\
+
+Scan WARNINGS for files and folders:
+
+C:\Users\me\Documents\My Music\ : Access is denied.
+C:\Users\me\Documents\My Videos\ : Access is denied.
+----------------
+Scan WARNINGS: 2
+"""
+    assert seven_zip_warnings(out) == [
+        r"Skipped C:\Users\me\Documents\My Music\ : Access is denied.",
+        r"Skipped C:\Users\me\Documents\My Videos\ : Access is denied.",
+    ]
+    assert seven_zip_warnings("no summary") == ["7-Zip reported warnings (see its output)"]
+
+
+def test_quota_error_after_making_room_is_retried(tmp_path, monkeypatch):
+    """Google Drive is slow to count freed space; the upload must be retried, not given up."""
+    pytest.importorskip("py7zr")
+    import magpie.cli as cli
+    import magpie.destinations as dst
+    monkeypatch.setattr(cli, "QUOTA_RETRY_DELAYS", [0, 0, 0])
+    cfg_path, nas, gd = make_setup(tmp_path)
+    data = json.loads(cfg_path.read_text())
+    data["destinations"][1].update({"keep": 1, "prune_before_upload": True})
+    cfg_path.write_text(json.dumps(data))
+    cfg = load_config(cfg_path)
+    assert run_backup(cfg, now=datetime(2026, 11, 7, 2, 0, 0)) == 0
+
+    real_upload = dst.FolderDestination.upload
+    calls = {"n": 0}
+
+    def flaky(self, archive):
+        if self.name == "gdrive":
+            calls["n"] += 1
+            if calls["n"] <= 2:
+                raise dst.DestinationError("googleapi: Error 403: storageQuotaExceeded")
+        return real_upload(self, archive)
+
+    monkeypatch.setattr(dst.FolderDestination, "upload", flaky)
+    assert run_backup(cfg, now=datetime(2026, 11, 8, 2, 0, 0)) == 0
+    assert calls["n"] == 3
+    assert [p.name for p in gd.iterdir()] == ["magpie-TESTBOX-20261108-020000.7z"]
+
+
+def test_quota_error_without_making_room_is_not_retried(tmp_path, monkeypatch):
+    pytest.importorskip("py7zr")
+    import magpie.cli as cli
+    import magpie.destinations as dst
+    monkeypatch.setattr(cli, "QUOTA_RETRY_DELAYS", [0, 0, 0])
+    cfg_path, nas, gd = make_setup(tmp_path)
+    cfg = load_config(cfg_path)
+    calls = {"n": 0}
+    real_upload = dst.FolderDestination.upload
+
+    def full(self, archive):
+        if self.name == "gdrive":
+            calls["n"] += 1
+            raise dst.DestinationError("storageQuotaExceeded")
+        return real_upload(self, archive)
+
+    monkeypatch.setattr(dst.FolderDestination, "upload", full)
+    assert run_backup(cfg, now=datetime(2026, 11, 8, 2, 0, 0)) == 1
+    assert calls["n"] == 1

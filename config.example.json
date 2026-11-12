@@ -14,7 +14,10 @@
     ".vs",
     "*.tmp",
     "Thumbs.db",
-    "desktop.ini"
+    "desktop.ini",
+    "My Music",
+    "My Pictures",
+    "My Videos"
   ],
   "keep": 2,
   "staging_dir": "staging",

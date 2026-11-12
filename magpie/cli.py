@@ -6,6 +6,7 @@ import argparse
 import logging
 import logging.handlers
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -59,6 +60,33 @@ def prune(target, machine: str, keep: int, *, dry_run: bool = False, pending: st
     return doomed
 
 
+# Google Drive takes a while to count space freed by a delete: an upload right after
+# deleting the old archive fails with storageQuotaExceeded although the space is free.
+# After making room, quota errors are retried after these waits (seconds, about 30 minutes in all).
+QUOTA_RETRY_DELAYS = [60, 120, 300, 600, 900]
+
+
+def is_quota_error(e: Exception) -> bool:
+    text = str(e).lower()
+    return "quota" in text or ("storage" in text and "exceeded" in text)
+
+
+def upload(target, archive: Path, *, retry_on_quota: bool = False) -> None:
+    delays = list(QUOTA_RETRY_DELAYS) if retry_on_quota else []
+    while True:
+        log.info("[%s] uploading...", target.name)
+        try:
+            target.upload(archive)
+            log.info("[%s] upload complete", target.name)
+            return
+        except DestinationError as e:
+            if not delays or not is_quota_error(e):
+                raise
+            wait = delays.pop(0)
+            log.warning("[%s] storage still counts the deleted archive; retrying in %d s", target.name, wait)
+            time.sleep(wait)
+
+
 def prune_staging(cfg: Config) -> None:
     if not cfg.staging_dir.is_dir():
         return
@@ -96,19 +124,18 @@ def run_backup(cfg: Config, *, dry_run: bool = False, now: datetime | None = Non
     failed = []
     for t in targets:
         keep = t.keep or cfg.keep
+        made_room = False
         if t.prune_before_upload:
             # Opt-in for destinations too small to hold keep + 1 archives: make room
             # first, counting the archive about to be uploaded as one of the kept.
             try:
-                prune(t, cfg.machine_name, keep, pending=name)
+                made_room = bool(prune(t, cfg.machine_name, keep, pending=name))
             except DestinationError as e:
                 log.error("[%s] cleanup before upload failed, skipping this destination: %s", t.name, e)
                 failed.append(t.name)
                 continue
         try:
-            log.info("[%s] uploading...", t.name)
-            t.upload(result.path)
-            log.info("[%s] upload complete", t.name)
+            upload(t, result.path, retry_on_quota=made_room)
         except DestinationError as e:
             # Never prune a destination whose newest backup didn't arrive.
             if t.prune_before_upload:
