@@ -95,7 +95,8 @@ through. They're static pages in `site/`, served by NGINX on the `magpie` VM (19
 | Address | Reach | How |
 | --- | --- | --- |
 | `https://whitesberg.net/` | Public | Cloudflare Tunnel to a localhost-only NGINX site on port 8081 |
-| `https://magpie.whitesberg.net/` | LAN and WireGuard | Straight to the VM, Let's Encrypt certificate |
+| `https://whitesberg.net/` | LAN and WireGuard | OPNsense host override (host `whitesberg`, domain `net`) straight to the VM, Let's Encrypt certificate |
+| `https://magpie.whitesberg.net/` | LAN and WireGuard | Straight to the VM, the same certificate |
 
 Pages: `/` (Whitesberg landing page), `/magpie/` (Magpie home page) and `/magpie/privacy.html` (privacy policy).
 For Google's Branding page use `https://whitesberg.net/magpie/` and `https://whitesberg.net/magpie/privacy.html`.
@@ -129,7 +130,7 @@ Let's Encrypt through Cloudflare DNS, the same way as the other internal hosts (
 3. Issue the certificate on the VM:
    ```bash
    sudo certbot certonly --dns-cloudflare --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini \
-     --dns-cloudflare-propagation-seconds 30 -d magpie.whitesberg.net --deploy-hook "systemctl reload nginx"
+     --dns-cloudflare-propagation-seconds 30 -d magpie.whitesberg.net -d whitesberg.net --deploy-hook "systemctl reload nginx"
    ```
 4. Run `.\deploy\deploy-site.ps1 -Full`. It sees the certificate, installs the HTTPS config and opens port 443.
 
