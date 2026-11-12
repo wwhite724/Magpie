@@ -43,8 +43,12 @@ $root = $PSScriptRoot
 if (-not (Test-Path (Join-Path $root "config.json"))) { throw "config.json is missing in $root (copy config.example.json)." }
 if (-not (Test-Path (Join-Path $root ".env")))        { throw ".env is missing in $root (copy .env.example)." }
 
-& $PythonExe -c "import py7zr" 2>$null
-if ($LASTEXITCODE -ne 0) { Write-Warning "py7zr isn't installed for $PythonExe. Run: & '$PythonExe' -m pip install -r requirements.txt" }
+# py7zr is only the fallback when 7-Zip is missing. The check prints nothing to stderr:
+# Windows PowerShell turns native stderr into a terminating error under "Stop".
+& $PythonExe -c "import importlib.util, sys; sys.exit(importlib.util.find_spec('py7zr') is None)"
+if ($LASTEXITCODE -ne 0 -and -not (Test-Path "C:\Program Files\7-Zip\7z.exe") -and -not (Get-Command 7z.exe -ErrorAction SilentlyContinue)) {
+    Write-Warning "Neither 7-Zip nor py7zr is installed. Install 7-Zip, or run: & '$PythonExe' -m pip install -r requirements.txt"
+}
 
 $user = "$env:USERDOMAIN\$env:USERNAME"
 $cred = Get-Credential -UserName $user -Message "Windows password for $user (lets the task reach the TrueNAS share)"
