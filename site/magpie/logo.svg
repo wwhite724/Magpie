@@ -2,47 +2,55 @@
   <title>Magpie</title>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#E8F1F5"/>
-      <stop offset="1" stop-color="#CFE2EA"/>
+      <stop offset="0" stop-color="#EEF2F4"/>
+      <stop offset="1" stop-color="#D9E3E8"/>
     </linearGradient>
     <linearGradient id="tail" x1="1" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#1E3A5F"/>
-      <stop offset="0.55" stop-color="#2563A6"/>
-      <stop offset="1" stop-color="#1F8A70"/>
+      <stop offset="0" stop-color="#151a20"/>
+      <stop offset="0.45" stop-color="#1f3a57"/>
+      <stop offset="1" stop-color="#1d4f4a"/>
     </linearGradient>
-    <linearGradient id="wingtip" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#111418"/>
-      <stop offset="1" stop-color="#2563A6"/>
+    <linearGradient id="wing" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#151a20"/>
+      <stop offset="1" stop-color="#22426a"/>
     </linearGradient>
-    <clipPath id="bodyclip">
-      <ellipse cx="66" cy="64" rx="25" ry="15.5" transform="rotate(-22 66 64)"/>
-    </clipPath>
   </defs>
 
   <rect width="120" height="120" rx="26" fill="url(#bg)"/>
 
-  <g transform="translate(-3 -2)">
+  <g transform="translate(60 61) scale(1.15) translate(-57.5 -65)">
     <!-- branch -->
-    <path d="M30 95 Q62 89 102 92" stroke="#6B4A2E" stroke-width="4.5" stroke-linecap="round" fill="none"/>
-
-    <!-- long iridescent tail -->
-    <path d="M52 70 L17 99 Q13 103 18 104 L62 80 Z" fill="url(#tail)"/>
+    <path d="M24 86 C46 82 74 81 104 84" stroke="#5b4636" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+    <path d="M86 82.5 C90 78 94 76 99 75" stroke="#5b4636" stroke-width="1.6" stroke-linecap="round" fill="none"/>
 
     <!-- legs -->
-    <path d="M64 78 L62 92 M71 78 L71 91" stroke="#111418" stroke-width="2.6" stroke-linecap="round"/>
+    <path d="M64 70 L61.5 83 M69 69.5 L68.5 82.5" stroke="#151a20" stroke-width="1.5" stroke-linecap="round"/>
 
-    <!-- body, with the white belly on its lower half -->
-    <ellipse cx="66" cy="64" rx="25" ry="15.5" transform="rotate(-22 66 64)" fill="#111418"/>
-    <ellipse cx="74" cy="73" rx="19" ry="11" transform="rotate(-22 74 73)" fill="#FFFFFF" clip-path="url(#bodyclip)"/>
+    <!-- tail -->
+    <path d="M54 63 L13 92.5 C11 94 12 96 14.5 95.2 L58 70 Z" fill="url(#tail)"/>
 
-    <!-- wing with white shoulder patch and blue tip -->
-    <path d="M44 71 Q56 50 80 49 Q71 61 57 72 Z" fill="url(#wingtip)"/>
-    <path d="M59 59 Q67 52.5 77 50.5 Q69 57 61.5 63 Z" fill="#FFFFFF"/>
+    <!-- head, body and beak in one silhouette -->
+    <path d="M104 43.5
+             L95.5 40.6
+             C93.5 36.6 89.5 34.6 85.5 34.8
+             C80.5 35.2 77.2 38.6 76 43.2
+             C71.5 47.8 62 52.5 53 60.5
+             C51.5 63.5 53 68.5 57.5 70.5
+             C64 72.5 72 70.5 77.5 65.5
+             C82.5 61 85.5 55.5 88.2 50.3
+             C90 47.6 92.5 46.4 95.8 45.6
+             Z" fill="#151a20"/>
 
-    <!-- head and beak -->
-    <circle cx="87" cy="44" r="12.5" fill="#111418"/>
-    <path d="M97 40 L113 43.5 L97 48 Z" fill="#111418"/>
-    <circle cx="91" cy="41.5" r="2.4" fill="#FFFFFF"/>
-    <circle cx="91.6" cy="41.5" r="1.3" fill="#111418"/>
+    <!-- white belly and flank -->
+    <path d="M58.5 69.2 C65 71 72.5 69 77 64.6 C80.6 61 82.8 57.4 84.2 54
+             C78 57.6 69.5 62.2 59.5 65.6 C57.5 66.6 57.2 68.4 58.5 69.2 Z" fill="#F6F7F8"/>
+
+    <!-- folded wing with a blue sheen and the white scapular stripe -->
+    <path d="M79 46.5 C70.5 48 59.5 54.5 49.5 66.5 C58.5 64.8 68 60.5 75.5 54.8 C78.5 52.4 80 49.4 79 46.5 Z" fill="url(#wing)"/>
+    <path d="M78.2 47.6 C71.5 49.4 64 53.6 57.4 59 C64.6 56 71.4 53.2 76.6 51.4 C77.8 50.4 78.4 49 78.2 47.6 Z" fill="#F6F7F8"/>
+
+    <!-- eye -->
+    <circle cx="88.6" cy="40.6" r="1.7" fill="#2b3138"/>
+    <circle cx="89.1" cy="40.1" r="0.55" fill="#FFFFFF" opacity="0.85"/>
   </g>
 </svg>
