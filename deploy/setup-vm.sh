@@ -111,8 +111,9 @@ publish() {
   nginx -t
   systemctl reload nginx
 
-  # keep the newest 3 releases
-  ls -1dt "$RELEASES"/*/ | tail -n +4 | xargs -r rm -rf
+  # Keep the newest 3 releases. Sort by name (the timestamp), not by folder date: unpacking gives
+  # every release folder the date of site/, so a date sort can delete the release just published.
+  ls -1d "$RELEASES"/*/ | sort -r | tail -n +4 | xargs -r rm -rf
 
   # NGINX reloads in the background, so give the new config a few seconds to take over
   local page code try
