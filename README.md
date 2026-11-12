@@ -90,13 +90,31 @@ python -m pytest
 
 ## The Magpie site (Google consent screen links)
 
-Google needs a home page and a privacy policy URL for the **Magpie** Google Cloud project that rclone signs in through.
-They're two static pages in `site/`, served by NGINX on the `magpie` VM (192.168.10.16, LAN and WireGuard only):
+Google needs a public home page and privacy policy URL for the **Magpie** Google Cloud project that rclone signs in
+through. They're static pages in `site/`, served by NGINX on the `magpie` VM (192.168.10.16) in two ways:
 
-- `https://magpie.whitesberg.net/`
-- `https://magpie.whitesberg.net/privacy.html`
+| Address | Reach | How |
+| --- | --- | --- |
+| `https://whitesberg.net/` | Public | Cloudflare Tunnel to a localhost-only NGINX site on port 8081 |
+| `https://magpie.whitesberg.net/` | LAN and WireGuard | Straight to the VM, Let's Encrypt certificate |
+
+Pages: `/` (Whitesberg landing page), `/magpie/` (Magpie home page) and `/magpie/privacy.html` (privacy policy).
+For Google's Branding page use `https://whitesberg.net/magpie/` and `https://whitesberg.net/magpie/privacy.html`.
 
 Publish changes with `.\deploy\deploy-site.ps1` (add `-Full` to set up or re-harden the VM).
+
+### Public tunnel
+
+These pages are the only thing on the home network that the internet can reach. No ports are open on OPNsense.
+
+1. Cloudflare **Zero Trust → Networks → Tunnels → Create a tunnel** (type Cloudflared), named `whitesberg`. Copy the token.
+2. On the tunnel's **Public Hostname** tab add `whitesberg.net` (no subdomain, no path) with service
+   **HTTP** `localhost:8081`. Never point it anywhere else.
+3. On the VM: `sudo bash ~/magpie-site-deploy/setup-tunnel.sh` and paste the token. It installs `cloudflared`, keeps the
+   token in `/etc/cloudflared/token` (root only), and stops the tunnel if a hostname points anywhere but port 8081.
+4. Check from outside the house (phone on mobile data): `https://whitesberg.net`.
+
+Status: `sudo bash ~/magpie-site-deploy/setup-tunnel.sh status`. To take the pages offline: `sudo systemctl disable --now cloudflared`.
 
 ### Site certificate
 

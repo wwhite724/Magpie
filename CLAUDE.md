@@ -13,9 +13,11 @@ keeping the newest N (default 2) per destination. Python 3.10+, run by Windows T
 ## Google Drive access and the site
 - rclone uses Magpie's own OAuth client (Google Cloud project **Magpie**, published *In production*, scope `drive.file`).
   rclone's shared client ID is retired during 2026, so never go back to a blank `client_id`.
-- `site/` is the project's home page and privacy policy (static, no scripts). It's served by NGINX on the `magpie` VM
-  (192.168.10.16, `https://magpie.whitesberg.net`, LAN/WireGuard only). Let's Encrypt certificate through certbot and
-  Cloudflare DNS (token `acme-magpie`); steps in the README under "Site certificate".
+- `site/` holds the Whitesberg landing page (`/`) and Magpie's home page and privacy policy (`/magpie/`), static, no
+  scripts. NGINX on the `magpie` VM (192.168.10.16) serves them twice: publicly as `https://whitesberg.net` through a
+  Cloudflare Tunnel to a localhost-only site on port 8081 (`deploy/magpie-public.conf`, `deploy/setup-tunnel.sh`), and
+  on the LAN as `https://magpie.whitesberg.net` (Let's Encrypt through certbot and Cloudflare DNS, token `acme-magpie`).
+- The tunnel must only ever point at `http://localhost:8081`. Keep `site/` free of anything private: it is public.
 - Deploy: `.\deploy\deploy-site.ps1` (add `-Full` to set up or re-harden the VM). SSH `willw@192.168.10.16`, key only.
   Releases are in `/var/www/magpie-releases` (last 3 kept); `/var/www/magpie` links to the live one.
 - **cpd** = commit, push, run `.\deploy\deploy-site.ps1`. The backup tool itself has no staging; it runs from this folder.

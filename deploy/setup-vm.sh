@@ -40,7 +40,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DOMAIN=magpie.whitesberg.net
 CERT="/etc/letsencrypt/live/$DOMAIN/fullchain.pem"
 if [[ -f "$CERT" ]]; then CONF=magpie-site.conf; SCHEME=https; else CONF=magpie-site-http.conf; SCHEME=http; fi
-for f in site.tgz "$CONF"; do
+PUBLIC_CONF=magpie-public.conf   # whitesberg.net through the Cloudflare tunnel, localhost:8081 only
+for f in site.tgz "$CONF" "$PUBLIC_CONF"; do
   [[ -f "$HERE/$f" ]] || { echo "Missing $f next to this script." >&2; exit 1; }
 done
 
@@ -108,6 +109,8 @@ publish() {
 
   install -m 644 "$HERE/$CONF" /etc/nginx/sites-available/magpie.conf
   ln -sfn /etc/nginx/sites-available/magpie.conf /etc/nginx/sites-enabled/magpie.conf
+  install -m 644 "$HERE/$PUBLIC_CONF" /etc/nginx/sites-available/whitesberg-public.conf
+  ln -sfn /etc/nginx/sites-available/whitesberg-public.conf /etc/nginx/sites-enabled/whitesberg-public.conf
   nginx -t
   systemctl reload nginx
 
@@ -117,13 +120,16 @@ publish() {
 
   # NGINX reloads in the background, so give the new config a few seconds to take over
   local page code try
-  for page in / /privacy.html; do
+  for page in / /magpie/ /magpie/privacy.html; do
     for try in 1 2 3 4 5 6 7 8 9 10; do
       code="$(curl -s -o /dev/null -w '%{http_code}' --resolve "$DOMAIN:443:127.0.0.1" --resolve "$DOMAIN:80:127.0.0.1" "$SCHEME://$DOMAIN$page" || true)"
       [[ "$code" == "200" ]] && break
       sleep 1
     done
     [[ "$code" == "200" ]] || { echo "$page answered $code instead of 200." >&2; exit 1; }
+    # the public copy that the Cloudflare tunnel serves as whitesberg.net
+    code="$(curl -s -o /dev/null -w '%{http_code}' -H 'Host: whitesberg.net' "http://127.0.0.1:8081$page" || true)"
+    [[ "$code" == "200" ]] || { echo "Public site: $page answered $code instead of 200." >&2; exit 1; }
   done
   echo "==> Published $(basename "$release") at $SCHEME://$DOMAIN"
   [[ "$SCHEME" == https ]] || echo "!!  No certificate yet, so the site is HTTP only. See README, \"Site certificate\"."

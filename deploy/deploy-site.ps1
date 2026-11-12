@@ -3,7 +3,9 @@
 #   .\deploy\deploy-site.ps1              publish the current working tree
 #   .\deploy\deploy-site.ps1 -Full        first time: also set up the VM (updates, NGINX, firewall, SSH hardening)
 #
-# The VM is "magpie" (192.168.10.16): https://magpie.whitesberg.net, LAN and WireGuard only.
+# The VM is "magpie" (192.168.10.16). The same pages are served two ways:
+#   https://magpie.whitesberg.net   LAN and WireGuard, straight to the VM
+#   https://whitesberg.net          public, through the Cloudflare tunnel (deploy\setup-tunnel.sh, see README)
 param(
   [string]$User = 'willw',
   [string]$SiteHost = '192.168.10.16',
@@ -18,11 +20,13 @@ New-Item -ItemType Directory $stage | Out-Null
 
 tar -czf "$stage\site.tgz" -C (Join-Path $root 'site') .
 if ($LASTEXITCODE -ne 0) { throw 'Packing site/ failed' }
-Copy-Item (Join-Path $PSScriptRoot 'magpie-site.conf'), (Join-Path $PSScriptRoot 'magpie-site-http.conf') $stage
+foreach ($n in 'magpie-site.conf', 'magpie-site-http.conf', 'magpie-public.conf') { Copy-Item (Join-Path $PSScriptRoot $n) $stage }
 # the setup script must have Unix line endings even if Git converted it on Windows
-$sh = (Get-Content (Join-Path $PSScriptRoot 'setup-vm.sh') -Raw) -replace "`r`n", "`n"
-[IO.File]::WriteAllText("$stage\setup-vm.sh", $sh, (New-Object Text.UTF8Encoding $false))
-$files = @('site.tgz', 'magpie-site.conf', 'magpie-site-http.conf', 'setup-vm.sh')
+foreach ($n in 'setup-vm.sh', 'setup-tunnel.sh') {
+  $sh = (Get-Content (Join-Path $PSScriptRoot $n) -Raw) -replace "`r`n", "`n"
+  [IO.File]::WriteAllText("$stage\$n", $sh, (New-Object Text.UTF8Encoding $false))
+}
+$files = @('site.tgz', 'magpie-site.conf', 'magpie-site-http.conf', 'magpie-public.conf', 'setup-vm.sh', 'setup-tunnel.sh')
 
 $target = "$User@$SiteHost"
 ssh $target 'rm -rf ~/magpie-site-deploy && mkdir -p ~/magpie-site-deploy'
