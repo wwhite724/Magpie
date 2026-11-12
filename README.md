@@ -87,3 +87,30 @@ Logs: `logs/magpie.log` (rotated, 5 × 1 MB).
 python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
+
+## The Magpie site (Google consent screen links)
+
+Google needs a home page and a privacy policy URL for the **Magpie** Google Cloud project that rclone signs in through.
+They're two static pages in `site/`, served by NGINX on the `magpie` VM (192.168.10.16, LAN and WireGuard only):
+
+- `https://magpie.whitesberg.net/`
+- `https://magpie.whitesberg.net/privacy.html`
+
+Publish changes with `.\deploy\deploy-site.ps1` (add `-Full` to set up or re-harden the VM).
+
+### Site certificate
+
+Let's Encrypt through Cloudflare DNS, the same way as the other internal hosts (HomeNetwork doc 15, Phase 3).
+
+1. In Cloudflare, create an API token named `acme-magpie`: **Specified Domains → whitesberg.net** only,
+   permissions **Zone: Read** and **DNS: Edit**.
+2. Put it on the VM in `/etc/letsencrypt/cloudflare.ini` (root, mode 600):
+   `dns_cloudflare_api_token = <token>`
+3. Issue the certificate on the VM:
+   ```bash
+   sudo certbot certonly --dns-cloudflare --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini \
+     --dns-cloudflare-propagation-seconds 30 -d magpie.whitesberg.net --deploy-hook "systemctl reload nginx"
+   ```
+4. Run `.\deploy\deploy-site.ps1 -Full`. It sees the certificate, installs the HTTPS config and opens port 443.
+
+`certbot.timer` renews the certificate and the deploy hook reloads NGINX. Test with `sudo certbot renew --dry-run`.

@@ -10,6 +10,16 @@ keeping the newest N (default 2) per destination. Python 3.10+, run by Windows T
 - `magpie/destinations.py`: `folder` (local/SMB) and `rclone` destinations: upload, list and delete.
 - `magpie/cli.py`: the run sequence (archive → upload → prune per destination → remove staging copy).
 
+## Google Drive access and the site
+- rclone uses Magpie's own OAuth client (Google Cloud project **Magpie**, published *In production*, scope `drive.file`).
+  rclone's shared client ID is retired during 2026, so never go back to a blank `client_id`.
+- `site/` is the project's home page and privacy policy (static, no scripts). It's served by NGINX on the `magpie` VM
+  (192.168.10.16, `https://magpie.whitesberg.net`, LAN/WireGuard only). Let's Encrypt certificate through certbot and
+  Cloudflare DNS (token `acme-magpie`); steps in the README under "Site certificate".
+- Deploy: `.\deploy\deploy-site.ps1` (add `-Full` to set up or re-harden the VM). SSH `willw@192.168.10.16`, key only.
+  Releases are in `/var/www/magpie-releases` (last 3 kept); `/var/www/magpie` links to the live one.
+- **cpd** = commit, push, run `.\deploy\deploy-site.ps1`. The backup tool itself has no staging; it runs from this folder.
+
 ## Rules
 - Retention only ever touches files matching `magpie-<THIS MACHINE>-<timestamp>.7z`. Never widen that pattern.
 - Never prune a destination whose upload failed in the same run. The only exception is a destination with
