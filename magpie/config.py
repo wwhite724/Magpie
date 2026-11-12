@@ -22,6 +22,10 @@ class Destination:
     type: str  # "folder" (local path or SMB share) or "rclone"
     path: str  # folder path, or rclone remote such as "gdrive:Backups/Magpie"
     rclone_args: list[str] = field(default_factory=list)
+    keep: int | None = None  # overrides the top-level "keep" for this destination
+    # Delete old archives BEFORE uploading the new one. Needs less space, but the
+    # destination holds fewer (with keep=1: zero) backups while the upload runs.
+    prune_before_upload: bool = False
 
 
 @dataclass
@@ -95,12 +99,17 @@ def load_config(config_path: Path, *, require_password: bool = True) -> Config:
         path = d.get("path") or d.get("remote")
         if not path:
             raise ConfigError(f"destinations[{i}] needs a 'path'")
+        dest_keep = d.get("keep")
+        if dest_keep is not None and int(dest_keep) < 1:
+            raise ConfigError(f"destinations[{i}].keep must be at least 1")
         destinations.append(
             Destination(
                 name=d.get("name") or f"{dtype}{i}",
                 type=dtype,
                 path=path,
                 rclone_args=list(d.get("rclone_args", [])),
+                keep=int(dest_keep) if dest_keep is not None else None,
+                prune_before_upload=bool(d.get("prune_before_upload", False)),
             )
         )
     if not destinations:

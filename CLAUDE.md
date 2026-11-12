@@ -12,7 +12,8 @@ keeping the newest N (default 2) per destination. Python 3.10+, run by Windows T
 
 ## Rules
 - Retention only ever touches files matching `magpie-<THIS MACHINE>-<timestamp>.7z`. Never widen that pattern.
-- Never prune a destination whose upload failed in the same run.
+- Never prune a destination whose upload failed in the same run. The only exception is a destination with
+  `prune_before_upload: true` in `config.json`, an explicit opt-in for destinations short on space. Never make it a default.
 - Never log the password (7-Zip errors are scrubbed before logging).
 
 ## Test

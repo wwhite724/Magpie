@@ -181,6 +181,81 @@ def test_7zip_archiver_round_trip(tmp_path):
         pytest.skip("7-Zip not installed")
     assert run_backup(cfg, now=datetime(2026, 11, 8, 2, 0, 0)) == 0
     with py7zr.SevenZipFile(nas / "magpie-TESTBOX-20261108-020000.7z", "r", password=PASSWORD) as z:
-        files = z.readall()
-    assert files["Documents/hello.txt"].read() == b"hello"
-    assert "Documents/junk.tmp" not in files
+        z.extractall(tmp_path / "restore")
+    assert (tmp_path / "restore" / "Documents" / "hello.txt").read_bytes() == b"hello"
+    assert (tmp_path / "restore" / "Documents" / "sub" / "data.bin").exists()
+    assert not (tmp_path / "restore" / "Documents" / "junk.tmp").exists()
+
+
+@pytest.mark.parametrize("archiver", ["py7zr", "7z"])
+def test_staging_and_logs_inside_a_source_are_not_archived(tmp_path, archiver):
+    """Like the Magpie staging folder when C:/dev is a source."""
+    py7zr = pytest.importorskip("py7zr")
+    cfg_path, nas, _ = make_setup(tmp_path, archiver=archiver)
+    data = json.loads(cfg_path.read_text())
+    src = Path(data["sources"][0])
+    data["staging_dir"] = str(src / "Magpie" / "staging")
+    data["log_dir"] = str(src / "Magpie" / "logs")
+    cfg_path.write_text(json.dumps(data))
+    (src / "Magpie" / "logs").mkdir(parents=True)
+    (src / "Magpie" / "logs" / "magpie.log").write_text("log")
+    (src / "Magpie" / "staging").mkdir()
+    (src / "Magpie" / "staging" / "leftover.bin").write_text("old")
+    (src / "Magpie" / "code.py").write_text("print(1)")
+    (src / "other" / "staging").mkdir(parents=True)
+    (src / "other" / "staging" / "keep.txt").write_text("a different staging folder is kept")
+    cfg = load_config(cfg_path)
+    from magpie.archive import find_7z
+    if archiver == "7z" and not find_7z(cfg):
+        pytest.skip("7-Zip not installed")
+
+    assert run_backup(cfg, now=datetime(2026, 11, 8, 2, 0, 0)) == 0
+    with py7zr.SevenZipFile(nas / "magpie-TESTBOX-20261108-020000.7z", "r", password=PASSWORD) as z:
+        names = set(z.getnames())
+    assert "Documents/Magpie/code.py" in names
+    assert "Documents/other/staging/keep.txt" in names
+    assert not [n for n in names if n.startswith(("Documents/Magpie/staging", "Documents/Magpie/logs"))]
+
+
+def test_per_destination_keep_and_prune_before_upload(tmp_path):
+    """gdrive keeps 1 and makes room first; truenas keeps the default 2."""
+    pytest.importorskip("py7zr")
+    cfg_path, nas, gd = make_setup(tmp_path)
+    data = json.loads(cfg_path.read_text())
+    data["destinations"][1].update({"keep": 1, "prune_before_upload": True})
+    cfg_path.write_text(json.dumps(data))
+    cfg = load_config(cfg_path)
+
+    seen_during_upload = []
+    import magpie.destinations as dst
+    real_upload = dst.FolderDestination.upload
+
+    def spy(self, archive):
+        if self.name == "gdrive" and self.root.exists():
+            seen_during_upload.append(sorted(p.name for p in self.root.iterdir()))
+        return real_upload(self, archive)
+
+    dst.FolderDestination.upload = spy
+    try:
+        start = datetime(2026, 11, 6, 2, 0, 0)
+        for night in range(3):
+            assert run_backup(cfg, now=start + timedelta(days=night)) == 0
+    finally:
+        dst.FolderDestination.upload = real_upload
+
+    assert sorted(p.name for p in gd.iterdir()) == ["magpie-TESTBOX-20261108-020000.7z"]
+    assert sorted(p.name for p in nas.iterdir()) == [
+        "magpie-TESTBOX-20261107-020000.7z",
+        "magpie-TESTBOX-20261108-020000.7z",
+    ]
+    # The old archive was already gone when each later upload started.
+    assert seen_during_upload == [[], []]
+
+
+def test_destination_keep_must_be_positive(tmp_path):
+    cfg_path, *_ = make_setup(tmp_path)
+    data = json.loads(cfg_path.read_text())
+    data["destinations"][0]["keep"] = 0
+    cfg_path.write_text(json.dumps(data))
+    with pytest.raises(ConfigError, match="keep"):
+        load_config(cfg_path)

@@ -36,12 +36,26 @@ def is_excluded(rel_parts: tuple[str, ...], patterns: list[str]) -> bool:
     return any(fnmatch.fnmatch(part.lower(), pat.lower()) for part in rel_parts for pat in patterns)
 
 
-def iter_files(source: Path, patterns: list[str]):
+def _norm(path: Path | str) -> str:
+    return os.path.normcase(os.path.abspath(path))
+
+
+def own_dirs(cfg: Config) -> list[Path]:
+    """Magpie's staging and log folders. They're never backed up, even when they sit
+    inside a source folder: otherwise the archive being written would include itself."""
+    return [cfg.staging_dir, cfg.log_dir]
+
+
+def iter_files(source: Path, patterns: list[str], skip_dirs: list[Path] = ()):
     """Yields (absolute path, archive name) for every file under source that isn't excluded."""
+    skip = {_norm(d) for d in skip_dirs}
     for root, dirs, files in os.walk(source):
         rel_root = Path(root).relative_to(source)
         root_parts = rel_root.parts
-        dirs[:] = [d for d in dirs if not is_excluded(root_parts + (d,), patterns)]
+        dirs[:] = [
+            d for d in dirs
+            if not is_excluded(root_parts + (d,), patterns) and _norm(Path(root) / d) not in skip
+        ]
         for f in files:
             if is_excluded(root_parts + (f,), patterns):
                 continue
@@ -52,7 +66,7 @@ def scan(cfg: Config) -> tuple[int, int]:
     """Counts the files and bytes that would be archived (used by --dry-run)."""
     count = total = 0
     for src in cfg.sources:
-        for path, _ in iter_files(src, cfg.excludes):
+        for path, _ in iter_files(src, cfg.excludes, own_dirs(cfg)):
             try:
                 total += path.stat().st_size
                 count += 1
@@ -98,6 +112,14 @@ def _with_7z(exe: str, cfg: Config, out: Path) -> list[str]:
         "-y",
     ]
     args += [f"-xr!{pat}" for pat in cfg.excludes]
+    # Leave out Magpie's own staging/log folders when they're inside a source.
+    for own in own_dirs(cfg):
+        for src in cfg.sources:
+            try:
+                rel = Path(os.path.abspath(own)).relative_to(os.path.abspath(src))
+            except ValueError:
+                continue
+            args.append("-x!" + str(Path(src.name) / rel))
     args.append(str(out))
     args += [str(s) for s in cfg.sources]
 
@@ -125,7 +147,7 @@ def _with_py7zr(cfg: Config, out: Path) -> list[str]:
     try:
         with py7zr.SevenZipFile(out, "w", password=cfg.password, header_encryption=True) as z:
             for src in cfg.sources:
-                for path, arcname in iter_files(src, cfg.excludes):
+                for path, arcname in iter_files(src, cfg.excludes, own_dirs(cfg)):
                     try:
                         with open(path, "rb"):
                             pass  # make sure it's readable before adding it

@@ -10,7 +10,8 @@ Each destination keeps this machine's **two newest** archives, and Magpie delete
 2. Copies it to each destination: an SMB/local folder (copied as `.partial`, size-checked, then renamed) or an rclone remote
    (Google Drive; rclone verifies the upload).
 3. Once a destination has the new archive, deletes that machine's archives there beyond `keep` (default 2).
-   A destination whose upload failed is never pruned.
+   A destination whose upload failed is never pruned. The one exception is a destination with
+   `prune_before_upload` set (see the config reference), which makes room first.
 4. Deletes the staging copy once every destination has it. If any upload failed, the copy stays in `staging/`.
 
 The machine name is part of the file name, so Apollo and Rocket can share the same destination folders without deleting
@@ -66,6 +67,9 @@ For Google Drive copies, download the file first: `rclone copy gdrive:Backups/Ma
 | `machine_name` | Defaults to the computer name. |
 | `archiver` | `auto` (7-Zip if installed, otherwise py7zr), `7z` or `py7zr`. |
 | `destinations` | `{"type": "folder", "path": "\\\\truenas\\share\\dir"}` or `{"type": "rclone", "path": "remote:dir", "rclone_args": [...]}`. |
+| `destinations[].keep` | Optional. Overrides `keep` for that destination. |
+| `destinations[].prune_before_upload` | Optional, default `false`. Deletes old archives *before* uploading the new one, for a destination too small to hold `keep` + 1 archives. With `keep: 1` the destination holds no backup while the upload runs, and none at all if that upload fails. |
+| `staging_dir` | Where the archive is built before it's copied out. Needs free space for one archive. Never backed up, even when it's inside a source. |
 
 `--drive-use-trash=false` in the example config permanently deletes old Google Drive archives, so they don't fill up your
 Drive's trash and storage quota.

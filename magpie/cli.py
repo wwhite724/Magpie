@@ -78,7 +78,7 @@ def run_backup(cfg: Config, *, dry_run: bool = False, now: datetime | None = Non
         log.info("Would archive %d files (%s before compression) into %s", count, human(total), name)
         for t in targets:
             try:
-                prune(t, cfg.machine_name, cfg.keep, dry_run=True, pending=name)
+                prune(t, cfg.machine_name, t.keep or cfg.keep, dry_run=True, pending=name)
             except DestinationError as e:
                 log.error("[%s] %s", t.name, e)
         return 0
@@ -95,17 +95,30 @@ def run_backup(cfg: Config, *, dry_run: bool = False, now: datetime | None = Non
 
     failed = []
     for t in targets:
+        keep = t.keep or cfg.keep
+        if t.prune_before_upload:
+            # Opt-in for destinations too small to hold keep + 1 archives: make room
+            # first, counting the archive about to be uploaded as one of the kept.
+            try:
+                prune(t, cfg.machine_name, keep, pending=name)
+            except DestinationError as e:
+                log.error("[%s] cleanup before upload failed, skipping this destination: %s", t.name, e)
+                failed.append(t.name)
+                continue
         try:
             log.info("[%s] uploading...", t.name)
             t.upload(result.path)
             log.info("[%s] upload complete", t.name)
         except DestinationError as e:
             # Never prune a destination whose newest backup didn't arrive.
-            log.error("[%s] upload failed, keeping old backups there: %s", t.name, e)
+            if t.prune_before_upload:
+                log.error("[%s] upload failed AFTER old backups were removed to make room: %s", t.name, e)
+            else:
+                log.error("[%s] upload failed, keeping old backups there: %s", t.name, e)
             failed.append(t.name)
             continue
         try:
-            prune(t, cfg.machine_name, cfg.keep)
+            prune(t, cfg.machine_name, keep)
         except DestinationError as e:
             log.error("[%s] cleanup failed: %s", t.name, e)
             failed.append(t.name)

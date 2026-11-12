@@ -21,6 +21,8 @@ class FolderDestination:
 
     def __init__(self, dest: Destination):
         self.name = dest.name
+        self.keep = dest.keep
+        self.prune_before_upload = dest.prune_before_upload
         self.root = Path(dest.path)
 
     def upload(self, archive: Path) -> None:
@@ -39,6 +41,8 @@ class FolderDestination:
     def list(self) -> list[str]:
         try:
             return [p.name for p in self.root.iterdir() if p.is_file()]
+        except FileNotFoundError:
+            return []  # folder not created yet; upload() creates it
         except OSError as e:
             raise DestinationError(f"Can't list {self.root}: {e}") from e
 
@@ -54,6 +58,8 @@ class RcloneDestination:
 
     def __init__(self, dest: Destination, rclone: str):
         self.name = dest.name
+        self.keep = dest.keep
+        self.prune_before_upload = dest.prune_before_upload
         self.remote = dest.path.rstrip("/")
         self.extra = dest.rclone_args
         self.rclone = rclone
