@@ -110,7 +110,8 @@ These pages are the only thing on the home network that the internet can reach. 
    dashboard sidebar, not under Zero Trust). Ignore the install instructions and the operating system choice. Use the
    copy button on the command box: the setup script below takes the whole copied command or only the token in it.
 2. On the tunnel's **Public Hostname** tab add `whitesberg.net` (no subdomain, no path) with service
-   **HTTP** `localhost:8081`. Never point it anywhere else.
+   **HTTP** `localhost:8081`. Never point it anywhere else, and keep the type HTTP, not HTTPS: the 8081 site speaks
+   plain HTTP inside the VM (visitors still get HTTPS from Cloudflare), so HTTPS there gives every visitor a 502.
 3. On the VM: `sudo bash ~/magpie-site-deploy/setup-tunnel.sh` and paste the token. It installs `cloudflared`, keeps the
    token in `/etc/cloudflared/token` (root only), and stops the tunnel if a hostname points anywhere but port 8081.
 4. Check from outside the house (phone on mobile data): `https://whitesberg.net`.
