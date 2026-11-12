@@ -59,9 +59,13 @@ if [ -z "${TUNNEL_TOKEN:-}" ]; then
   read -r -s -p "Tunnel token (Cloudflare > Networking > Tunnels > whitesberg): " TUNNEL_TOKEN < /dev/tty
   echo
 fi
-# accept either the bare token or the whole "cloudflared service install <token>" line from the dashboard
-TUNNEL_TOKEN="$(printf '%s' "$TUNNEL_TOKEN" | tr -d '[:space:]' | sed 's/^.*install//')"
-[ ${#TUNNEL_TOKEN} -gt 50 ] || { echo "That does not look like a tunnel token." >&2; exit 1; }
+# accept the bare token or any of the dashboard's command lines
+# ("[sudo] cloudflared[.exe] service install <token>" or "cloudflared tunnel run --token <token>")
+TUNNEL_TOKEN="$(printf '%s' "$TUNNEL_TOKEN" | tr -d '[:space:]' | sed 's/^.*install//; s/^.*--token//')"
+case "$TUNNEL_TOKEN" in
+  eyJ*) [ ${#TUNNEL_TOKEN} -gt 50 ] || { echo "That does not look like a tunnel token." >&2; exit 1; } ;;
+  *) echo "That does not look like a tunnel token (it starts with eyJ)." >&2; exit 1 ;;
+esac
 
 echo "==> cloudflared service"
 # The token lives in a root-only file, so it never shows in the unit file or the process list
