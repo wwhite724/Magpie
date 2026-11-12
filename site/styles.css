@@ -6,6 +6,7 @@
 body { margin: 0; background: var(--bg); color: var(--fg);
   font: 17px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
 main { max-width: 42rem; margin: 0 auto; padding: 3rem 1rem 4rem; }
+.logo { display: block; margin: 0 0 1rem; }
 h1 { font-size: 2rem; line-height: 1.2; margin: 0 0 .25rem; }
 h2 { font-size: 1.15rem; margin: 2rem 0 .5rem; }
 .tag { color: var(--muted); margin: 0 0 2rem; }

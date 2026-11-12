@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <title>Magpie</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E8F1F5"/>
+      <stop offset="1" stop-color="#CFE2EA"/>
+    </linearGradient>
+    <linearGradient id="tail" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1E3A5F"/>
+      <stop offset="0.55" stop-color="#2563A6"/>
+      <stop offset="1" stop-color="#1F8A70"/>
+    </linearGradient>
+    <linearGradient id="wingtip" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#111418"/>
+      <stop offset="1" stop-color="#2563A6"/>
+    </linearGradient>
+    <clipPath id="bodyclip">
+      <ellipse cx="66" cy="64" rx="25" ry="15.5" transform="rotate(-22 66 64)"/>
+    </clipPath>
+  </defs>
+
+  <rect width="120" height="120" rx="26" fill="url(#bg)"/>
+
+  <g transform="translate(-3 -2)">
+    <!-- branch -->
+    <path d="M30 95 Q62 89 102 92" stroke="#6B4A2E" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+
+    <!-- long iridescent tail -->
+    <path d="M52 70 L17 99 Q13 103 18 104 L62 80 Z" fill="url(#tail)"/>
+
+    <!-- legs -->
+    <path d="M64 78 L62 92 M71 78 L71 91" stroke="#111418" stroke-width="2.6" stroke-linecap="round"/>
+
+    <!-- body, with the white belly on its lower half -->
+    <ellipse cx="66" cy="64" rx="25" ry="15.5" transform="rotate(-22 66 64)" fill="#111418"/>
+    <ellipse cx="74" cy="73" rx="19" ry="11" transform="rotate(-22 74 73)" fill="#FFFFFF" clip-path="url(#bodyclip)"/>
+
+    <!-- wing with white shoulder patch and blue tip -->
+    <path d="M44 71 Q56 50 80 49 Q71 61 57 72 Z" fill="url(#wingtip)"/>
+    <path d="M59 59 Q67 52.5 77 50.5 Q69 57 61.5 63 Z" fill="#FFFFFF"/>
+
+    <!-- head and beak -->
+    <circle cx="87" cy="44" r="12.5" fill="#111418"/>
+    <path d="M97 40 L113 43.5 L97 48 Z" fill="#111418"/>
+    <circle cx="91" cy="41.5" r="2.4" fill="#FFFFFF"/>
+    <circle cx="91.6" cy="41.5" r="1.3" fill="#111418"/>
+  </g>
+</svg>
