@@ -14,12 +14,11 @@ keeping the newest N (default 2) per destination. Python 3.10+, run by Windows T
 ## Google Drive access and the site
 - rclone uses Magpie's own OAuth client (Google Cloud project **Magpie**, published *In production*, scope `drive.file`).
   rclone's shared client ID is retired during 2026, so never go back to a blank `client_id`.
-- `site/` holds the Whitesberg landing page (`/`) and Magpie's home page and privacy policy (`/magpie/`), static, no
-  scripts. NGINX on the `magpie` VM (192.168.10.53) serves them twice: publicly as `https://whitesberg.net` through a
-  Cloudflare Tunnel to a localhost-only site on port 8081 (`deploy/magpie-public.conf`, `deploy/setup-tunnel.sh`), and
-  on the LAN as `https://magpie.whitesberg.net` and `https://whitesberg.net` (OPNsense host overrides; one Let's Encrypt
-  certificate for both names through certbot and Cloudflare DNS, token `acme-magpie`).
-- The tunnel must only ever point at `http://localhost:8081`. Keep `site/` free of anything private: it is public.
+- The consent screen links to `https://whitesberg.net/magpie/` and `/magpie/privacy.html`. Since 2026-11-12 those public
+  copies live in the **Whitesberg** repo (`C:\dev\Whitesberg\site\magpie\`, VM 104 `whitesberg`, Cloudflare Tunnel):
+  change the public pages there. `site/` here keeps Magpie's pages for `https://magpie.whitesberg.net` (LAN and WireGuard
+  only; `/` redirects to `/magpie/`), Let's Encrypt through certbot and Cloudflare DNS, token `acme-magpie`.
+  Keep `site/` free of anything private.
 - Deploy: `.\deploy\deploy-site.ps1` (add `-Full` to set up or re-harden the VM). SSH `willw@192.168.10.53`, key only.
   Releases are in `/var/www/magpie-releases` (last 3 kept); `/var/www/magpie` links to the live one.
 - **cpd** = commit, push, run `.\deploy\deploy-site.ps1`. The backup tool itself has no staging; it runs from this folder.

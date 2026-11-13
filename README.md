@@ -90,34 +90,14 @@ python -m pytest
 ## The Magpie site (Google consent screen links)
 
 Google needs a public home page and privacy policy URL for the **Magpie** Google Cloud project that rclone signs in
-through. They're static pages in `site/`, served by NGINX on the `magpie` VM (192.168.10.53) in two ways:
+through. For Google's Branding page use `https://whitesberg.net/magpie/` and `https://whitesberg.net/magpie/privacy.html`.
 
-| Address | Reach | How |
-| --- | --- | --- |
-| `https://whitesberg.net/` | Public | Cloudflare Tunnel to a localhost-only NGINX site on port 8081 |
-| `https://whitesberg.net/` | LAN and WireGuard | OPNsense host override (host `whitesberg`, domain `net`) straight to the VM, Let's Encrypt certificate |
-| `https://magpie.whitesberg.net/` | LAN and WireGuard | Straight to the VM, the same certificate |
-
-Pages: `/` (Whitesberg landing page), `/magpie/` (Magpie home page) and `/magpie/privacy.html` (privacy policy).
-For Google's Branding page use `https://whitesberg.net/magpie/` and `https://whitesberg.net/magpie/privacy.html`.
+Since 2026-11-12 those public pages are published from the **Whitesberg** repo (`C:\dev\Whitesberg`, VM 104
+`whitesberg`, Cloudflare Tunnel `whitesberg`); change them there. This repo's `site/` holds the same Magpie pages for
+`https://magpie.whitesberg.net` (LAN and WireGuard only, `/` redirects to `/magpie/`), served by NGINX on the `magpie`
+VM (192.168.10.53).
 
 Publish changes with `.\deploy\deploy-site.ps1` (add `-Full` to set up or re-harden the VM).
-
-### Public tunnel
-
-These pages are the only thing on the home network that the internet can reach. No ports are open on OPNsense.
-
-1. Cloudflare **Networking → Tunnels → Create a tunnel**, named `whitesberg` (Networking is its own item in the
-   dashboard sidebar, not under Zero Trust). Ignore the install instructions and the operating system choice. Use the
-   copy button on the command box: the setup script below takes the whole copied command or only the token in it.
-2. On the tunnel's **Public Hostname** tab add `whitesberg.net` (no subdomain, no path) with service
-   **HTTP** `localhost:8081`. Never point it anywhere else, and keep the type HTTP, not HTTPS: the 8081 site speaks
-   plain HTTP inside the VM (visitors still get HTTPS from Cloudflare), so HTTPS there gives every visitor a 502.
-3. On the VM: `sudo bash ~/magpie-site-deploy/setup-tunnel.sh` and paste the token. It installs `cloudflared`, keeps the
-   token in `/etc/cloudflared/token` (root only), and stops the tunnel if a hostname points anywhere but port 8081.
-4. Check from outside the house (phone on mobile data): `https://whitesberg.net`.
-
-Status: `sudo bash ~/magpie-site-deploy/setup-tunnel.sh status`. To take the pages offline: `sudo systemctl disable --now cloudflared`.
 
 ### Site certificate
 
@@ -130,7 +110,7 @@ Let's Encrypt through Cloudflare DNS, the same way as the other internal hosts (
 3. Issue the certificate on the VM:
    ```bash
    sudo certbot certonly --dns-cloudflare --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini \
-     --dns-cloudflare-propagation-seconds 30 -d magpie.whitesberg.net -d whitesberg.net --deploy-hook "systemctl reload nginx"
+     --dns-cloudflare-propagation-seconds 30 -d magpie.whitesberg.net --deploy-hook "systemctl reload nginx"
    ```
 4. Run `.\deploy\deploy-site.ps1 -Full`. It sees the certificate, installs the HTTPS config and opens port 443.
 
