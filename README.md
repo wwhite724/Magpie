@@ -92,26 +92,5 @@ python -m pytest
 Google needs a public home page and privacy policy URL for the **Magpie** Google Cloud project that rclone signs in
 through. For Google's Branding page use `https://whitesberg.net/magpie/` and `https://whitesberg.net/magpie/privacy.html`.
 
-Since 2026-11-12 those public pages are published from the **Whitesberg** repo (`C:\dev\Whitesberg`, VM 104
-`whitesberg`, Cloudflare Tunnel `whitesberg`); change them there. This repo's `site/` holds the same Magpie pages for
-`https://magpie.whitesberg.net` (LAN and WireGuard only, `/` redirects to `/magpie/`), served by NGINX on the `magpie`
-VM (192.168.10.53).
-
-Publish changes with `.\deploy\deploy-site.ps1` (add `-Full` to set up or re-harden the VM).
-
-### Site certificate
-
-Let's Encrypt through Cloudflare DNS, the same way as the other internal hosts (HomeNetwork doc 15, Phase 3).
-
-1. In Cloudflare, create an API token named `acme-magpie`: **Specified Domains → whitesberg.net** only,
-   permissions **Zone: Read** and **DNS: Edit**.
-2. Put it on the VM in `/etc/letsencrypt/cloudflare.ini` (root, mode 600):
-   `dns_cloudflare_api_token = <token>`
-3. Issue the certificate on the VM:
-   ```bash
-   sudo certbot certonly --dns-cloudflare --dns-cloudflare-credentials /etc/letsencrypt/cloudflare.ini \
-     --dns-cloudflare-propagation-seconds 30 -d magpie.whitesberg.net --deploy-hook "systemctl reload nginx"
-   ```
-4. Run `.\deploy\deploy-site.ps1 -Full`. It sees the certificate, installs the HTTPS config and opens port 443.
-
-`certbot.timer` renews the certificate and the deploy hook reloads NGINX. Test with `sudo certbot renew --dry-run`.
+Those pages live only in the **Whitesberg** repo (`C:\dev\Whitesberg\site\magpie\`, served from VM 104 `whitesberg`
+through the Cloudflare Tunnel `whitesberg`); change and publish them there. This repo no longer has a site of its own.

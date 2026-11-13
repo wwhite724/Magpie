@@ -11,17 +11,12 @@ keeping the newest N (default 2) per destination. Python 3.10+, run by Windows T
 - `magpie/destinations.py`: `folder` (local/SMB) and `rclone` destinations: upload, list and delete.
 - `magpie/cli.py`: the run sequence (archive → upload → prune per destination → remove staging copy).
 
-## Google Drive access and the site
+## Google Drive access and the Magpie pages
 - rclone uses Magpie's own OAuth client (Google Cloud project **Magpie**, published *In production*, scope `drive.file`).
   rclone's shared client ID is retired during 2026, so never go back to a blank `client_id`.
-- The consent screen links to `https://whitesberg.net/magpie/` and `/magpie/privacy.html`. Since 2026-11-12 those public
-  copies live in the **Whitesberg** repo (`C:\dev\Whitesberg\site\magpie\`, VM 104 `whitesberg`, Cloudflare Tunnel):
-  change the public pages there. `site/` here keeps Magpie's pages for `https://magpie.whitesberg.net` (LAN and WireGuard
-  only; `/` redirects to `/magpie/`), Let's Encrypt through certbot and Cloudflare DNS, token `acme-magpie`.
-  Keep `site/` free of anything private.
-- Deploy: `.\deploy\deploy-site.ps1` (add `-Full` to set up or re-harden the VM). SSH `willw@192.168.10.53`, key only.
-  Releases are in `/var/www/magpie-releases` (last 3 kept); `/var/www/magpie` links to the live one.
-- **cpd** = commit, push, run `.\deploy\deploy-site.ps1`. The backup tool itself has no staging; it runs from this folder.
+- The consent screen links to `https://whitesberg.net/magpie/` and `/magpie/privacy.html`. Those pages live only in the
+  **Whitesberg** repo (`C:\dev\Whitesberg\site\magpie\`, VM 104 `whitesberg`); change them there. This repo has no site
+  and no deploy step: the backup tool has no staging and runs from this folder.
 
 ## Rules
 - Retention only ever touches files matching `magpie-<THIS MACHINE>-<timestamp>.7z`. Never widen that pattern.
