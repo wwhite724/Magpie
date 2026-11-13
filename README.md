@@ -90,7 +90,7 @@ python -m pytest
 ## The Magpie site (Google consent screen links)
 
 Google needs a public home page and privacy policy URL for the **Magpie** Google Cloud project that rclone signs in
-through. They're static pages in `site/`, served by NGINX on the `magpie` VM (192.168.10.16) in two ways:
+through. They're static pages in `site/`, served by NGINX on the `magpie` VM (192.168.10.53) in two ways:
 
 | Address | Reach | How |
 | --- | --- | --- |

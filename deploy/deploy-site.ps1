@@ -3,12 +3,12 @@
 #   .\deploy\deploy-site.ps1              publish the current working tree
 #   .\deploy\deploy-site.ps1 -Full        first time: also set up the VM (updates, NGINX, firewall, SSH hardening)
 #
-# The VM is "magpie" (192.168.10.16). The same pages are served two ways:
+# The VM is "magpie" (192.168.10.53). The same pages are served two ways:
 #   https://magpie.whitesberg.net   LAN and WireGuard, straight to the VM
 #   https://whitesberg.net          public, through the Cloudflare tunnel (deploy\setup-tunnel.sh, see README)
 param(
   [string]$User = 'willw',
-  [string]$SiteHost = '192.168.10.16',
+  [string]$SiteHost = '192.168.10.53',
   [switch]$Full
 )
 $ErrorActionPreference = 'Stop'

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Magpie site VM setup (Ubuntu Server 26.04 LTS, VM "magpie", 192.168.10.16)
+# Magpie site VM setup (Ubuntu Server 26.04 LTS, VM "magpie", 192.168.10.53)
 #
 # Run on the VM from the folder deploy-site.ps1 uploads (site.tgz and the two NGINX configs):
 #   sudo bash setup-vm.sh                 full setup (first time, or to re-harden), then publish
